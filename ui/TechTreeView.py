@@ -10,6 +10,17 @@ from PySide6.QtWidgets import QGraphicsView, QLabel, QGroupBox, QGraphicsWidget
 ZERO_POINT: Final[QPoint] = QPoint(0,0)
 
 
+def xor(*bools: bool):
+    is_true = False
+    for bol in bools:
+        if bol:
+            if is_true:
+                return False
+            else:
+                is_true = True
+    return is_true
+
+
 def getQPointF(qRectF: QRectF | QSizeF):
     return QPointF(
         qRectF.width(),
@@ -75,9 +86,13 @@ class TechTreeView(QGraphicsView):
         self.scene().addWidget(self.new_widget)
         self.new_widget.setGeometry(0,0,self.cell_size.x(),self.cell_size.y())
 
-        self.new_widget = TechTreeView.TechWidget("ds")
-        self.scene().addWidget(self.new_widget)
-        self.new_widget.setGeometry(self.cell_size.x(),self.cell_size.y(),self.cell_size.x(),self.cell_size.y())
+        self.new_widget1 = TechTreeView.TechWidget("ds")
+        self.scene().addWidget(self.new_widget1)
+        self.new_widget1.setGeometry(self.cell_size.x(),self.cell_size.y(),self.cell_size.x(),self.cell_size.y())
+
+        self.new_widget2 = TechTreeView.TechWidget("ds")
+        self.scene().addWidget(self.new_widget2)
+        self.new_widget2.setGeometry(self.cell_size.x()*2,self.cell_size.y()*2,self.cell_size.x(),self.cell_size.y())
 
 
         self.center = QPoint(0,0)
@@ -171,14 +186,18 @@ class TechTreeView(QGraphicsView):
 
     # При нажатии
     def mousePressEvent(self, event):
-        if (Qt.MouseButton.LeftButton in event.buttons() or Qt.MouseButton.RightButton in event.buttons()) and not self.is_dragging:
+        if xor(Qt.MouseButton.LeftButton in event.buttons(), Qt.MouseButton.RightButton in event.buttons()) and not self.is_dragging:
             touchedItem = self.scene().itemAt(self.mapToScene(event.pos()), QTransform())
             if Qt.KeyboardModifier.ControlModifier not in event.modifiers() and touchedItem not in self.selected:
+                for item in self.selected:
+                    item.widget().setSelected(False)
                 self.selected.clear()
             if touchedItem is not None:
+                touchedItem.widget().setSelected(True)
                 if touchedItem not in self.selected:
                     self.selected.append(touchedItem)
-                self.is_moving = True
+                if Qt.MouseButton.RightButton not in event.buttons():
+                    self.is_moving = True
             else:
                 self.is_selecting = True
                 self.start_mouse_pos = self.mapToScene(event.pos())
@@ -214,7 +233,7 @@ class TechTreeView(QGraphicsView):
 
     # При отпускании
     def mouseReleaseEvent(self, event):
-        if event.button() in (Qt.MouseButton.LeftButton, Qt.MouseButton.RightButton) and not self.is_dragging:
+        if xor(Qt.MouseButton.LeftButton == event.button(), Qt.MouseButton.RightButton == event.button()) and not self.is_dragging:
             if self.is_selecting:
 
                 start_grid_pos = getGridPos(self.start_mouse_pos)
@@ -222,6 +241,7 @@ class TechTreeView(QGraphicsView):
                 selected = self.select(start_grid_pos, end_grid_pos)
                 for item in selected:
                     if item not in self.selected:
+                        item.widget().setSelected(True)
                         self.selected.append(item)
 
             self.is_selecting = False
@@ -264,7 +284,6 @@ class TechTreeView(QGraphicsView):
                     break
             else:
                 for item in self.selected:
-
                     item.setPos(
                         QPoint(
                             item.x()+delta_mouse_pos.x(),
@@ -283,6 +302,7 @@ class TechTreeView(QGraphicsView):
 
         def __init__(self, title="", parent=None):
             super().__init__(title, parent)
+            self.setStyleSheet("""""")
 
             TechTreeView.TechWidget._instances.add(self)
             self._number = len(TechTreeView.TechWidget._instances)
@@ -290,6 +310,12 @@ class TechTreeView(QGraphicsView):
 
         def __del__(self):
             TechTreeView.TechWidget._dirty = True
+
+        def setSelected(self, is_selected: bool):
+            if is_selected:
+                self.setStyleSheet("""border: 0.5em solid white""")
+            else:
+                self.setStyleSheet("""""")
 
         @property
         def number(self):
