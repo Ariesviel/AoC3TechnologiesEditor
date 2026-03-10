@@ -26,7 +26,7 @@ class TechTreeEditorWindow(QMainWindow):
         self.resize(self.minimumSize())
 
         self.scene = QGraphicsScene()
-        self.scene.setSceneRect(0, 0, 160000, 100000)
+        self.scene.setSceneRect(0, 0, 200000, 100000)
 
         self.coordLabel = QLabel(self)
 

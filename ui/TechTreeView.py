@@ -3,9 +3,8 @@ import weakref
 from typing import Final
 
 from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, QRect, QRectF, QSizeF
-from PySide6.QtGui import QPainter, QColor, Qt, QTransform
-from PySide6.QtWidgets import QGraphicsView, QLabel, QGroupBox, QGraphicsWidget
-
+from PySide6.QtGui import QPainter, QColor, Qt, QTransform, QAction, QCursor
+from PySide6.QtWidgets import QGraphicsView, QLabel, QGroupBox, QGraphicsWidget, QWidget, QVBoxLayout, QMenu
 
 ZERO_POINT: Final[QPoint] = QPoint(0,0)
 
@@ -56,7 +55,7 @@ def getGridPos(pos: QPoint | QPointF):
     )
 
 
-def getSelectionGeometry(start: QPoint | QPointF, end: QPoint | QPointF):
+def getRect(start: QPoint | QPointF, end: QPoint | QPointF):
     position = (
         start.x() if start.x() < end.x() else end.x(),
         start.y() if start.y() < end.y() else end.y())
@@ -70,7 +69,7 @@ def getSelectionGeometry(start: QPoint | QPointF, end: QPoint | QPointF):
 class TechTreeView(QGraphicsView):
     from ui.TechTreeEditorWindow import TechTreeEditorWindow
 
-    cell_size: Final[QPoint] = QPoint(160,100)
+    cell_size: Final[QPoint] = QPoint(200,100)
 
     def __init__(self, scene=None, parent:TechTreeEditorWindow=None):
         super().__init__(scene, parent)
@@ -82,25 +81,21 @@ class TechTreeView(QGraphicsView):
         self.timer.start(100)
 
 
-        self.new_widget = TechTreeView.TechWidget("dsdsdsds")
+        self.new_widget = TechTreeView.TechWidget("1")
         self.scene().addWidget(self.new_widget)
         self.new_widget.setGeometry(0,0,self.cell_size.x(),self.cell_size.y())
 
-        self.new_widget1 = TechTreeView.TechWidget("ds")
+        self.new_widget1 = TechTreeView.TechWidget("2")
         self.scene().addWidget(self.new_widget1)
         self.new_widget1.setGeometry(self.cell_size.x(),self.cell_size.y(),self.cell_size.x(),self.cell_size.y())
 
-        self.new_widget2 = TechTreeView.TechWidget("ds")
+        self.new_widget2 = TechTreeView.TechWidget("3")
         self.scene().addWidget(self.new_widget2)
         self.new_widget2.setGeometry(self.cell_size.x()*2,self.cell_size.y()*2,self.cell_size.x(),self.cell_size.y())
 
 
         self.center = QPoint(0,0)
         self.coordLabel = QLabel(self)
-        self.coordLabel.setStyleSheet(
-        """
-        font-size: 30px
-        """)
 
         self.scale(0.75,0.75)
 
@@ -137,6 +132,10 @@ class TechTreeView(QGraphicsView):
             math.ceil(geometry.width()),
             math.ceil(geometry.height()/20)
         )
+        self.coordLabel.setStyleSheet(
+        f"""
+        font-size: {self.coordLabel.geometry().height()}px
+        """)
 
 
     def drawForeground(self, painter, rect):
@@ -151,7 +150,7 @@ class TechTreeView(QGraphicsView):
 
 
         if self.is_selecting:
-            painter.drawRect(getSelectionGeometry(self.start_mouse_pos, current_mouse_pos))
+            painter.drawRect(getRect(self.start_mouse_pos, current_mouse_pos))
 
         painter.restore()
 
@@ -206,8 +205,9 @@ class TechTreeView(QGraphicsView):
         elif Qt.MouseButton.MiddleButton in event.buttons():
             self.is_dragging = True
 
-    def select(self, start, end):
-        selection_rect = getSelectionGeometry(start,end)
+
+    def select(self, start, end) -> list[QGraphicsWidget]:
+        selection_rect = getRect(start,end)
 
         selected = []
 
@@ -218,8 +218,8 @@ class TechTreeView(QGraphicsView):
             while y < int(selection_rect.y() + selection_rect.height()):
                 item = self.scene().itemAt(
                     QPoint(
-                        int(x * self.cell_size.x() + 1),
-                        int(y * self.cell_size.y() + 1)
+                        int((x+0.5) * self.cell_size.x()),
+                        int((y+0.5) * self.cell_size.y())
                     ),
                     QTransform()
                 )
@@ -247,6 +247,19 @@ class TechTreeView(QGraphicsView):
             self.is_selecting = False
             self.is_moving = False
             self.viewport().update()
+            if Qt.MouseButton.RightButton == event.button():
+                menu = QMenu()
+
+                file_menu = menu.addMenu("Файл")
+                file_menu.addAction("Новый")
+                file_menu.addAction("Открыть")
+
+                edit_menu = menu.addMenu("Правка")
+                edit_menu.addAction("Копировать")
+                edit_menu.addAction("Вставить")
+
+                help_action = menu.addAction("Помощь")
+                menu.exec_(QCursor.pos())
         elif Qt.MouseButton.MiddleButton == event.button():
             self.is_dragging = False
 
@@ -295,27 +308,28 @@ class TechTreeView(QGraphicsView):
         self.viewport().update()
 
     class TechWidget(QGroupBox):
-        # Lazy update
+        """Lazy update"""
 
         _instances = weakref.WeakSet()
         _dirty = False  # Флаг необходимости пересчета
 
-        def __init__(self, title="", parent=None):
-            super().__init__(title, parent)
-            self.setStyleSheet("""""")
+        def __init__(self, name="", parent=None):
+            super().__init__(name,parent)
 
             TechTreeView.TechWidget._instances.add(self)
             self._number = len(TechTreeView.TechWidget._instances)
             TechTreeView.TechWidget._dirty = True
+            self.setStyleSheet(
+                """QGroupBox {   border: 0.1em solid white; margin: 0.25em; border-radius: 20px; color: white; background-color: rgb(31,31,31);  }""")
 
         def __del__(self):
             TechTreeView.TechWidget._dirty = True
 
         def setSelected(self, is_selected: bool):
             if is_selected:
-                self.setStyleSheet("""border: 0.5em solid white""")
+                self.setStyleSheet("""QGroupBox {   border: 0.1em solid black; margin: 0.25em; border-radius: 20px; color: black; background-color: white;  }""")
             else:
-                self.setStyleSheet("""""")
+                self.setStyleSheet("""QGroupBox {   border: 0.1em solid white; margin: 0.25em; margin-top: 0.1em; border-radius: 20px; color: white; background-color: rgb(31,31,31);  }""")
 
         @property
         def number(self):
