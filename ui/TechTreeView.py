@@ -3,10 +3,9 @@ import math
 import weakref
 from typing import Final
 
-from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, QRect, QRectF, QSizeF, QSize
+from PySide6.QtCore import QPoint, QPointF, Qt, QRect, QRectF, QSizeF, QSize
 from PySide6.QtGui import QPainter, QColor, Qt, QTransform
-from PySide6.QtWidgets import QGraphicsView, QLabel, QWidget,  QGraphicsItem
-
+from PySide6.QtWidgets import QGraphicsView, QLabel, QWidget, QGraphicsItem, QApplication
 
 ZERO_POINT: Final[QPoint] = QPoint(0,0)
 
@@ -75,10 +74,6 @@ class TechTreeView(QGraphicsView):
 
         self.setMouseTracking(True)
 
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.viewUpdate)
-        self.timer.start(100)
-
         self.setRenderHint(QPainter.Antialiasing)
         self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
         self.setDragMode(QGraphicsView.NoDrag)
@@ -103,14 +98,17 @@ class TechTreeView(QGraphicsView):
         self.centerOn(0,0)
 
 
-    def viewUpdate(self):
-        scene_mouse_pos = self.mapToScene(self.current_mouse_pos)
-        self.coordLabel.setText(f"{int(scene_mouse_pos.x()/self.cell_size.width())}, {int(scene_mouse_pos.y()/self.cell_size.height())}")
-        self.viewport().update()
-
-
-    def getCenter(self):
-        return self.mapToScene(self.viewport().rect().center())
+    def setCursorState(self, state: CursorState):
+        self.cursor_state = state
+        match state:
+            case TechTreeView.CursorState.Selecting:
+                QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
+            case TechTreeView.CursorState.MovingScene:
+                QApplication.setOverrideCursor(Qt.CursorShape.OpenHandCursor)
+            case TechTreeView.CursorState.MovingItems:
+                QApplication.setOverrideCursor(Qt.CursorShape.ClosedHandCursor)
+            case TechTreeView.CursorState.Basic:
+                QApplication.setOverrideCursor(Qt.CursorShape.ArrowCursor)
 
 
     def resizeEvent(self, event):
@@ -136,7 +134,6 @@ class TechTreeView(QGraphicsView):
         painter.setBrush(QColor(127,127,127,63))
 
         current_mouse_pos = self.mapToScene(self.current_mouse_pos.x(), self.current_mouse_pos.y())
-
 
         if self.cursor_state == TechTreeView.CursorState.Selecting:
             painter.drawRect(getRect(self.start_mouse_pos, current_mouse_pos))
@@ -184,12 +181,12 @@ class TechTreeView(QGraphicsView):
     def startSelecting(self, start_pos: QPoint, ctrl_mod: bool=False):
         if not ctrl_mod:
             self.selected.clear()
-        self.cursor_state = TechTreeView.CursorState.Selecting
+        self.setCursorState(TechTreeView.CursorState.Selecting)
         self.start_mouse_pos = start_pos
 
 
     def endSelect(self, last_pos: QPoint):
-        self.cursor_state = TechTreeView.CursorState.Basic
+        self.setCursorState(TechTreeView.CursorState.Basic)
         point1 = getGridPos(self.start_mouse_pos)
         point2 = getGridPos(last_pos)
 
@@ -211,6 +208,7 @@ class TechTreeView(QGraphicsView):
                         self.selected.append(item)
                 y += 1
             x += 1
+        self.viewport().update()
 
 
     # При нажатии
@@ -223,7 +221,7 @@ class TechTreeView(QGraphicsView):
         if Qt.MouseButton.MiddleButton in buttons:
             if self.cursor_state == TechTreeView.CursorState.Selecting:
                 self.endSelect(scene_mouse_pos)
-            self.cursor_state = TechTreeView.CursorState.MovingScene
+            self.setCursorState(TechTreeView.CursorState.MovingScene)
         elif Qt.MouseButton.RightButton in buttons:
             if self.cursor_state == TechTreeView.CursorState.Selecting:
                 self.endSelect(scene_mouse_pos)
@@ -233,10 +231,19 @@ class TechTreeView(QGraphicsView):
                     if not ctrl_mod:
                         self.selected.clear()
                     self.selected.append(touchedItem)
-                self.cursor_state = TechTreeView.CursorState.MovingItems
+                self.setCursorState(TechTreeView.CursorState.MovingItems)
             else:
                 if self.cursor_state not in (TechTreeView.CursorState.MovingScene, TechTreeView.CursorState.MovingItems):
                     self.startSelecting(self.mapToScene(event.pos()), ctrl_mod)
+
+
+    def wheelEvent(self, event):
+        delta = (event.angleDelta().x() + event.angleDelta().y())/1000
+        x, y = self.transform().m11(), self.transform().m22()
+        value = clamp((x+y)/2.0+delta,0.25,1.0)
+        self.scale(1/x,1/y)
+        self.scale(value,value)
+        print(value)
 
 
     # При отпускании
@@ -248,13 +255,13 @@ class TechTreeView(QGraphicsView):
         match event.button():
             case Qt.MouseButton.MiddleButton:
                 if self.cursor_state == TechTreeView.CursorState.MovingScene:
-                    self.cursor_state = TechTreeView.CursorState.Basic
+                    self.setCursorState(TechTreeView.CursorState.Basic)
             case Qt.MouseButton.LeftButton:
                 match self.cursor_state:
                     case TechTreeView.CursorState.Selecting:
                         self.endSelect(scene_mouse_pos)
                     case TechTreeView.CursorState.MovingItems:
-                        self.cursor_state = TechTreeView.CursorState.Basic
+                        self.setCursorState(TechTreeView.CursorState.Basic)
 
 
     # При движении
@@ -263,6 +270,7 @@ class TechTreeView(QGraphicsView):
         mouse_pos = event.pos()
         buttons = event.buttons()
         scene_event_pos = self.mapToScene(event.pos())
+        self.coordLabel.setText(f"{int(scene_event_pos.x()/self.cell_size.width())}, {int(scene_event_pos.y()/self.cell_size.height())}")
         delta_mouse_pos = QPoint(
             math.ceil(self.current_mouse_pos.x()-event.x()),
             math.ceil(self.current_mouse_pos.y()-event.y())
@@ -312,7 +320,7 @@ class TechTreeView(QGraphicsView):
 
             self.label = QLabel(self)
             self.label.setText(name)
-            self.label.setGeometry(0,0,self.width(),math.floor(self.height()/4))
+            self.label.setGeometry(0,0,self.width(),math.floor(self.height()/3))
             self.label.setStyleSheet(f"""font-size: {math.floor(self.height()/4)}px; background-color: rgba(127,127,127,63) """)
 
             TechTreeView.TechWidget._instances.add(self)
