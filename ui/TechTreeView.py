@@ -1,11 +1,14 @@
 import enum
 import math
-import weakref
 from typing import Final
 
-from PySide6.QtCore import QPoint, QPointF, Qt, QRect, QRectF, QSizeF, QSize
+from PySide6.QtCore import QPoint, QPointF, Qt, QRect, QRectF, QSizeF
 from PySide6.QtGui import QPainter, QColor, Qt, QTransform
-from PySide6.QtWidgets import QGraphicsView, QLabel, QWidget, QGraphicsItem, QApplication
+from PySide6.QtWidgets import QGraphicsView, QLabel, QGraphicsItem, QApplication, QMenu
+
+from ui.TechTreeScene import TechTreeScene
+from ui.TechStats import TechStats
+
 
 ZERO_POINT: Final[QPoint] = QPoint(0,0)
 
@@ -32,16 +35,16 @@ def pointClamp(value: QPoint | QPointF, minim: QPoint | QPointF, maxim: QPoint |
 def getGridedPos(pos: QPoint | QPointF):
     coord_type = int if type(pos) == QPoint else float
     return pos.__class__(
-        coord_type(pos.x()//TechTreeView.cell_size.width()*TechTreeView.cell_size.width()),
-        coord_type(pos.y()//TechTreeView.cell_size.height()*TechTreeView.cell_size.height())
+        coord_type(pos.x()//TechTreeScene.CELL_SIZE.width()*TechTreeScene.CELL_SIZE.width()),
+        coord_type(pos.y()//TechTreeScene.CELL_SIZE.height()*TechTreeScene.CELL_SIZE.height())
     )
 
 
 def getGridPos(pos: QPoint | QPointF):
     coord_type = int if QPoint else float
     return pos.__class__(
-        coord_type(pos.x()//TechTreeView.cell_size.width()),
-        coord_type(pos.y()//TechTreeView.cell_size.height())
+        coord_type(pos.x()//TechTreeScene.CELL_SIZE.width()),
+        coord_type(pos.y()//TechTreeScene.CELL_SIZE.height())
     )
 
 
@@ -67,9 +70,7 @@ class TechTreeView(QGraphicsView):
 
     from ui.TechTreeEditorWindow import TechTreeEditorWindow
 
-    cell_size: Final[QSize] = QSize(300,100)
-
-    def __init__(self, scene=None, parent:TechTreeEditorWindow=None):
+    def __init__(self, scene:TechTreeScene, parent:TechTreeEditorWindow=None):
         super().__init__(scene, parent)
 
         self.setMouseTracking(True)
@@ -77,14 +78,6 @@ class TechTreeView(QGraphicsView):
         self.setRenderHint(QPainter.Antialiasing)
         self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
         self.setDragMode(QGraphicsView.NoDrag)
-
-        self.new_widget = TechTreeView.TechWidget("1")
-        self.scene().addWidget(self.new_widget)
-
-        self.new_widget1 = TechTreeView.TechWidget("2")
-        self.scene().addWidget(self.new_widget1)
-        geo = self.new_widget1.geometry()
-        self.new_widget1.setGeometry(self.cell_size.width(),self.cell_size.height(),geo.width(),geo.height())
 
         self.coordLabel = QLabel(self)
 
@@ -141,32 +134,9 @@ class TechTreeView(QGraphicsView):
         painter.restore()
 
 
-    def drawBackground(self, painter, rect):
-        """Отрисовка сетки"""
-        super().drawBackground(painter, rect)
-        painter.save()
-
-        painter.setPen(QColor(255, 255, 255))
-
-        for y in range(int(self.scene().height()/self.cell_size.height())):
-            painter.drawLine(
-                0,
-                y*self.cell_size.height(),
-                math.ceil(self.scene().width()),
-                y*self.cell_size.height()
-            )
-        painter.drawLine(0,int(self.scene().height()),int(self.scene().width()),int(self.scene().height()))
-
-        for x in range(int(self.scene().width()/self.cell_size.width())):
-            painter.drawLine(
-                x*self.cell_size.width(),
-                0,
-                x*self.cell_size.width(),
-                math.ceil(self.scene().height())
-            )
-        painter.drawLine(int(self.scene().width()),0,int(self.scene().width()),int(self.scene().height()))
-
-        painter.restore()
+    def openContextMenu(self, pos):
+        menu = QMenu()
+        pass
 
 
     def scrollBars(self, dpos: QPoint | QPointF):
@@ -178,14 +148,36 @@ class TechTreeView(QGraphicsView):
         )
 
 
+    def clearSelected(self):
+        if len(self.selected) > 0:
+            for item in self.selected:
+                item.widget().setSelected(False)
+            self.selected.clear()
+
+
+    def deselect(self, item):
+        if item in self.selected:
+            item.widget().setSelected(False)
+            self.selected.pop(self.selected.index(item))
+
+
+    def select(self, item, ctrl_mod=False):
+        if not ctrl_mod:
+            self.clearSelected()
+        if item not in self.selected:
+            if item:
+                item.widget().setSelected(True)
+                self.selected.append(item)
+
+
     def startSelecting(self, start_pos: QPoint, ctrl_mod: bool=False):
         if not ctrl_mod:
-            self.selected.clear()
+            self.clearSelected()
         self.setCursorState(TechTreeView.CursorState.Selecting)
         self.start_mouse_pos = start_pos
 
 
-    def endSelect(self, last_pos: QPoint):
+    def endSelect(self, last_pos: QPoint, alt_mod=False):
         self.setCursorState(TechTreeView.CursorState.Basic)
         point1 = getGridPos(self.start_mouse_pos)
         point2 = getGridPos(last_pos)
@@ -198,14 +190,16 @@ class TechTreeView(QGraphicsView):
             while y < int(selection_rect.y() + selection_rect.height()):
                 item = self.scene().itemAt(
                     QPoint(
-                        int((x + 0.5) * self.cell_size.width()),
-                        int((y + 0.5) * self.cell_size.height())
+                        int((x + 0.5) * TechTreeScene.CELL_SIZE.width()),
+                        int((y + 0.5) * TechTreeScene.CELL_SIZE.height())
                     ),
                     QTransform()
                 )
                 if item is not None:
-                    if item not in self.selected:
-                        self.selected.append(item)
+                    if alt_mod:
+                        self.deselect(item)
+                    else:
+                        self.select(item, True)
                 y += 1
             x += 1
         self.viewport().update()
@@ -218,6 +212,7 @@ class TechTreeView(QGraphicsView):
         scene_mouse_pos = self.mapToScene(event.pos())
         touchedItem = self.scene().itemAt(scene_mouse_pos, QTransform())
         ctrl_mod = Qt.KeyboardModifier.ControlModifier in event.modifiers()
+        alt_mod = Qt.KeyboardModifier.AltModifier in event.modifiers()
         if Qt.MouseButton.MiddleButton in buttons:
             if self.cursor_state == TechTreeView.CursorState.Selecting:
                 self.endSelect(scene_mouse_pos)
@@ -225,25 +220,15 @@ class TechTreeView(QGraphicsView):
         elif Qt.MouseButton.RightButton in buttons:
             if self.cursor_state == TechTreeView.CursorState.Selecting:
                 self.endSelect(scene_mouse_pos)
+            self.select(touchedItem, False)
         elif Qt.MouseButton.LeftButton in buttons:
             if touchedItem:
                 if touchedItem not in self.selected:
-                    if not ctrl_mod:
-                        self.selected.clear()
-                    self.selected.append(touchedItem)
+                    self.select(touchedItem, ctrl_mod)
                 self.setCursorState(TechTreeView.CursorState.MovingItems)
             else:
                 if self.cursor_state not in (TechTreeView.CursorState.MovingScene, TechTreeView.CursorState.MovingItems):
-                    self.startSelecting(self.mapToScene(event.pos()), ctrl_mod)
-
-
-    def wheelEvent(self, event):
-        delta = (event.angleDelta().x() + event.angleDelta().y())/1000
-        x, y = self.transform().m11(), self.transform().m22()
-        value = clamp((x+y)/2.0+delta,0.25,1.0)
-        self.scale(1/x,1/y)
-        self.scale(value,value)
-        print(value)
+                    self.startSelecting(self.mapToScene(event.pos()), ctrl_mod or alt_mod)
 
 
     # При отпускании
@@ -259,7 +244,7 @@ class TechTreeView(QGraphicsView):
             case Qt.MouseButton.LeftButton:
                 match self.cursor_state:
                     case TechTreeView.CursorState.Selecting:
-                        self.endSelect(scene_mouse_pos)
+                        self.endSelect(scene_mouse_pos, Qt.KeyboardModifier.AltModifier in event.modifiers())
                     case TechTreeView.CursorState.MovingItems:
                         self.setCursorState(TechTreeView.CursorState.Basic)
 
@@ -270,7 +255,7 @@ class TechTreeView(QGraphicsView):
         mouse_pos = event.pos()
         buttons = event.buttons()
         scene_event_pos = self.mapToScene(event.pos())
-        self.coordLabel.setText(f"{int(scene_event_pos.x()/self.cell_size.width())}, {int(scene_event_pos.y()/self.cell_size.height())}")
+        self.coordLabel.setText(f"{int(scene_event_pos.x()/TechTreeScene.CELL_SIZE.width())}, {int(scene_event_pos.y()/TechTreeScene.CELL_SIZE.height())}")
         delta_mouse_pos = QPoint(
             math.ceil(self.current_mouse_pos.x()-event.x()),
             math.ceil(self.current_mouse_pos.y()-event.y())
@@ -307,60 +292,10 @@ class TechTreeView(QGraphicsView):
         self.viewport().update()
 
 
-    class TechWidget(QWidget):
-        """Lazy update. Большую часть сгенила ИИшка"""
-
-        _instances = weakref.WeakSet()
-        _dirty = False  # Флаг необходимости пересчета
-
-        def __init__(self, name="", /, pos=QPoint(0,0), parent=None):
-            super().__init__(parent)
-            w, h = TechTreeView.cell_size.width(), TechTreeView.cell_size.height()
-            self.setGeometry(pos.x(),pos.y(),w,h)
-
-            self.label = QLabel(self)
-            self.label.setText(name)
-            self.label.setGeometry(0,0,self.width(),math.floor(self.height()/3))
-            self.label.setStyleSheet(f"""font-size: {math.floor(self.height()/4)}px; background-color: rgba(127,127,127,63) """)
-
-            TechTreeView.TechWidget._instances.add(self)
-            self._number = len(TechTreeView.TechWidget._instances)
-            TechTreeView.TechWidget._dirty = True
-            self.setStyleSheet(
-                """QWidget {   color: white; background-color: rgb(31,31,31);  }""")
-
-        def __del__(self):
-            TechTreeView.TechWidget._dirty = True
-
-        def setSelected(self, is_selected: bool):
-            if is_selected:
-                self.setStyleSheet("""QWidget {   color: black; background-color: white;  }""")
-            else:
-                self.setStyleSheet("""QWidget {   color: white; background-color: rgb(31,31,31);  }""")
-
-        @property
-        def number(self):
-            """Ленивое обновление номера при запросе"""
-            if TechTreeView.TechWidget._dirty:
-                self.__class__._recalculate_numbers()
-            return self._number
-
-        @classmethod
-        def _recalculate_numbers(cls):
-            """Пересчитывает номера только при необходимости"""
-            if not cls._dirty:
-                return
-
-            instances = list(cls._instances)
-            for i, instance in enumerate(instances, 1):
-                instance._number = i
-
-            cls._dirty = False
-
-        @classmethod
-        def get_all_sorted(cls):
-            """Получить все с гарантией актуальности номеров"""
-            cls._recalculate_numbers()
-            instances = list(cls._instances)
-            instances.sort(key=lambda x: x._number)
-            return instances
+    def wheelEvent(self, event):
+        if Qt.KeyboardModifier.ControlModifier in event.modifiers():
+            delta = (event.angleDelta().x() + event.angleDelta().y())/1000
+            x, y = self.transform().m11(), self.transform().m22()
+            value = clamp((x+y)/2.0+delta,0.2,1.0)
+            self.scale(1/x,1/y)
+            self.scale(value,value)

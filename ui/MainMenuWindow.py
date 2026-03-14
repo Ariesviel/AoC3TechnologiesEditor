@@ -37,24 +37,19 @@ class MainMenuWindow(QMainWindow):
         )
 
 
-    def opens(self):
-        self.techTreeEditorWindow = TechTreeEditorWindow(self.screenSize)
+    def openFile(self, file_path):
+        self.techTreeEditorWindow = TechTreeEditorWindow(self.screenSize, file_path)
         self.techTreeEditorWindow.show()
 
 
     def openFileDialog(self):
-        # Открыть диалог выбора файла
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Выберите файл",
-            "",  # Начальная директория
-            "Все файлы (*.*)"  # Фильтр файлов
+            "Choose file",
+            "",
+            "Все файлы (*.*)"
         )
-
-        if file_path:
-            print(f"Выбран файл: {file_path}")
-            # Открыть файл в ассоциированной программе
-            # QDesktopServices.openUrl(QUrl.fromLocalFile(file_path))
+        self.openFile(file_path)
 
 
     def setUI(self):
@@ -65,8 +60,6 @@ class MainMenuWindow(QMainWindow):
         self.resize(self.minimumSize())
 
         self.setMaximumSize(self.screenSize)
-
-        self.opens()
 
         self.createNewTreeButton = QPushButton(self)
         self.createNewTreeButton.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))

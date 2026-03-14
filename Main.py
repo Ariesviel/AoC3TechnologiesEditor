@@ -1,12 +1,11 @@
-import sys
-
-from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QApplication
-
-from ui.MainMenuWindow import MainMenuWindow
-
-
 def main():
+    import sys
+
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtWidgets import QApplication
+
+    from ui.MainMenuWindow import MainMenuWindow
+
     app = QApplication(sys.argv)
     app.setApplicationName("AoC3TechnologiesEditor")
     app.setOrganizationName("Ariesviel's Editor")
