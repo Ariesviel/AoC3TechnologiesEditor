@@ -1,35 +1,30 @@
-import math
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import QMainWindow, QGraphicsView
 
-from PySide6.QtCore import QSize
-from PySide6.QtWidgets import QMainWindow, QLabel
+from ui.TechTreeScene import TechTreeScene
 
 
 class TechTreeEditorWindow(QMainWindow):
-    def __init__(self, screenSize: QSize, file=None):
+
+    def __init__(self, file_path=None):
         super().__init__()
-        self.screenSize = screenSize
-        self.setUI(file)
+        self.setUI(file_path)
 
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        size = self.size()
-        self.coordLabel.setGeometry(0,0,size.width(),math.ceil(size.width()/25))
-        self.techTreeView.setGeometry(0,math.ceil(size.height()/25),size.width(),size.height()-math.ceil(size.height()/25))
+    def resizeEvent(self, event, /):
+        self.view.setGeometry(0,0,self.width(),self.height())
 
 
-    def setUI(self, file=None):
+    def setUI(self, file_path):
+        screen = QGuiApplication.primaryScreen()
         self.setMinimumSize(
-            int(0.5*self.screenSize.width()),
-            int(0.5*self.screenSize.height())
+            int((600/1920)*screen.size().width()),
+            int((400/1080)*screen.size().height())
         )
-        self.resize(self.minimumSize())
+        self.resize(self.minimumSize()*2)
 
-        self.coordLabel = QLabel(self)
-
-        from ui.TechTreeScene import TechTreeScene
-        self.scene = TechTreeScene(file)
-
-        from ui.TechTreeView import TechTreeView
-        self.techTreeView = TechTreeView(self.scene, self)
-        self.techTreeView.setGeometry(0,0,100,100)
+        self.scene = TechTreeScene(file_path)
+        self.view = QGraphicsView(self.scene,self)
+        self.view.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
+        self.view.setDragMode(QGraphicsView.NoDrag)
+        self.view.centerOn(0,0)

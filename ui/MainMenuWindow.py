@@ -37,19 +37,20 @@ class MainMenuWindow(QMainWindow):
         )
 
 
-    def openFile(self, file_path):
-        self.techTreeEditorWindow = TechTreeEditorWindow(self.screenSize, file_path)
+    def createNew(self):
+        self.techTreeEditorWindow = TechTreeEditorWindow()
         self.techTreeEditorWindow.show()
 
 
-    def openFileDialog(self):
+    def openFile(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Choose file",
             "",
             "Все файлы (*.*)"
         )
-        self.openFile(file_path)
+        self.techTreeEditorWindow = TechTreeEditorWindow(file_path)
+        self.techTreeEditorWindow.show()
 
 
     def setUI(self):
@@ -64,8 +65,9 @@ class MainMenuWindow(QMainWindow):
         self.createNewTreeButton = QPushButton(self)
         self.createNewTreeButton.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.createNewTreeButton.setText('New Technologies Tree')
+        self.createNewTreeButton.clicked.connect(self.createNew)
 
         self.openTreeButton = QPushButton(self)
         self.openTreeButton.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.openTreeButton.setText('Open Technologies Tree')
-        self.openTreeButton.clicked.connect(self.openFileDialog)
+        self.openTreeButton.clicked.connect(self.openFile)

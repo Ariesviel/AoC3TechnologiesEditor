@@ -1,125 +1,122 @@
 import math
 from typing import Final
 
-from PySide6.QtCore import QSize, QPoint, QRect
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QSize, QPoint
+from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import QGraphicsScene
 
-from LukaszFormatReader import format_type
+from LukaszFormatReader import formatType
 
 
 class TechTreeScene(QGraphicsScene):
 
-    CELL_SIZE: Final[QSize] = QSize(600, 200)
-    
-    def __init__(self, file=None):
-        super().__init__(QRect(QPoint(0,0), self.CELL_SIZE*100))
-        if file is not None:
-            content = format_type("Technology", file)
-            technologies = content['Technology']
-            for technology in technologies:
-                self.dict_to_tech_stats(technology)
+    CELL_SIZE: Final[QSize] = QSize(300, 100)
+
+    def __init__(self, file_path=None):
+        super().__init__(0,0,self.CELL_SIZE.width()*200,self.CELL_SIZE.height()*100)
+        #/* Technologies extraction
+        from ui.TechItem import TechItem
+        self.techItems: list[TechItem] = []
+        if file_path:
+            content = formatType("Technology",file_path)
+            for technology in content["Technology"]:
+                self.addTechItem(TechItem(**technology))
+        for techItem in self.techItems:
+            techItem.RequiredTech = self.techItems[techItem.RequiredTech] if techItem.RequiredTech > -1 else None
+            techItem.RequiredTech2 = self.techItems[techItem.RequiredTech2] if techItem.RequiredTech2 > -1 else None
+        # Technologies extraction */
 
 
-    def dict_to_tech_stats(self, dictionary: dict):
-        from ui.TechWidget import TechWidget
-        from ui.TechStats import TechStats
-        widget = TechWidget(TechStats(**dictionary), QPoint(dictionary["TreeColumn"], dictionary["TreeRow"]))
-        self.addWidget(widget)
+    def addTechItem(self, techItem, /):
+        self.techItems.append(techItem)
+        self.addItem(techItem)
 
 
-    def drawBackground(self, painter, rect):
-        """Отрисовка сетки"""
-        super().drawBackground(painter, rect)
-        painter.save()
-
-        painter.setPen(QColor(255, 255, 255))
-        painter.setBrush(QColor(255, 255, 255))
-
+    def drawGrid(self, painter: QPainter):
         w, h = self.CELL_SIZE.width(), self.CELL_SIZE.height()
 
-        for y in range(math.ceil(self.height()/self.CELL_SIZE.height())):
+        painter.setPen(QColor(191, 191, 191))
+        painter.setBrush(QColor(191, 191, 191))
+
+        #/* Horizontal lines
+        for y in range(math.ceil(self.height()/h)):
             painter.drawLine(
                 0,
-                y*self.CELL_SIZE.height(),
+                y*h,
                 math.ceil(self.width()),
-                y*self.CELL_SIZE.height()
+                y*h
             )
         painter.drawLine(0,int(self.height()),int(self.width()),int(self.height()))
+        # Horizontal lines */
 
-        for x in range(math.ceil(self.width()/self.CELL_SIZE.width())):
+        #/* Vertical lines
+        for x in range(math.ceil(self.width()/w)):
             painter.drawLine(
-                x*self.CELL_SIZE.width(),
+                x*w,
                 0,
-                x*self.CELL_SIZE.width(),
+                x*w,
                 math.ceil(self.height())
             )
         painter.drawLine(int(self.width()),0,int(self.width()),int(self.height()))
+        # Vertical lines */
 
-        techs = {}
 
-        for widget in self.items():
-            techs[widget.widget().tech_stats.ID] = widget
+    def drawTechLine(self, painter: QPainter, start: QPoint, end: QPoint, w: float, color: QColor):
+        painter.setPen(color)
+        painter.setBrush(color)
+        point1 = QPoint(
+            int(end.x()-w*0.125),
+            start.y()
+        )
+        painter.drawLine(start,point1)
+        point2 = QPoint(
+            int(end.x()-w*0.025),
+            end.y()
+        )
+        painter.drawLine(point1,point2)
+        painter.drawLine(point2,end)
 
-        for widget in self.items():
-            tech = widget.widget().tech_stats.RequiredTech
-            tech2 = widget.widget().tech_stats.RequiredTech2
-            wid = widget.widget()
-            end = QPoint(
-                widget.x(),
-                int(widget.y()+wid.height()/4)
-            )
-            end2 = QPoint(
-                widget.x(),
-                int(widget.y()+3*wid.height()/4)
-            )
-            if tech > -1:
-                painter.setBrush(QColor(0,255,255))
-                painter.setPen(QColor(0,255,255))
-                tech_proxy = techs[tech]
-                tech_wid = tech_proxy.widget()
-                start = QPoint(
-                    tech_proxy.x()+tech_wid.width(),
-                    int(tech_proxy.y()+tech_wid.height()/4)
+
+    def drawTechLines(self, painter: QPainter):
+        for techItem in self.techItems:
+            #/* Line for RequiredTech
+            tech1 = techItem.RequiredTech
+            if tech1:
+                end1 = QPoint(
+                    techItem.x()+tech1.OFFSET,
+                    techItem.y()+techItem.SIZE.height()/4+tech1.OFFSET
                 )
-                point1 = QPoint(
-                    int(start.x()+w*0.05),
-                    start.y()
+                start1 = QPoint(
+                    tech1.x()+tech1.SIZE.width()+tech1.OFFSET,
+                    tech1.y()+tech1.SIZE.height()/4+tech1.OFFSET
                 )
-                point2 = QPoint(
-                    int(point1.x()+w*0.1),
-                    end.y()
+                self.drawTechLine(painter,start1,end1,tech1.SIZE.width(), QColor(0,255,255))
+            # Line for RequiredTech */
+            #/* Line for RequiredTech2
+            tech2 = techItem.RequiredTech2
+            if tech2:
+                end2 = QPoint(
+                    techItem.x()+tech2.OFFSET,
+                    techItem.y()+3*techItem.SIZE.height()/4+tech2.OFFSET
                 )
-                painter.drawLine(start, point1)
-                painter.drawLine(point1, point2)
-                painter.drawLine(point2, end)
-            if tech2 > -1:
-                painter.setBrush(QColor(0,255,0))
-                painter.setPen(QColor(0,255,0))
-                tech_proxy = techs[tech2]
-                tech_wid = tech_proxy.widget()
-                start = QPoint(
-                    tech_proxy.x()+tech_wid.width(),
-                    int(tech_proxy.y()+tech_wid.height()/4)
+                start2 = QPoint(
+                    tech2.x()+tech2.SIZE.width()+tech2.OFFSET,
+                    tech2.y()+3*tech2.SIZE.height()/4+tech2.OFFSET
                 )
-                point1 = QPoint(
-                    int(start.x()+w*0.05),
-                    start.y()
-                )
-                point2 = QPoint(
-                    int(point1.x()+w*0.1),
-                    end2.y()
-                )
-                painter.drawLine(start, point1)
-                painter.drawLine(point1, point2)
-                painter.drawLine(point2, end2)
+                self.drawTechLine(painter,start2,end2,tech2.SIZE.width(), QColor(0,255,0))
+            # Line for RequiredTech2 */
+
+
+    def drawBackground(self, painter, rect, /):
+        super().drawBackground(painter, rect)
+
+        #/* Background
+        painter.setPen(QColor(35, 35, 35))
+        painter.setBrush(QColor(35, 35, 35))
+        painter.drawRect(0,0,self.width(),self.height())
+        # Background */
+
+        self.drawGrid(painter)
+        self.drawTechLines(painter)
 
         painter.restore()
-
-
-    from ui.TechWidget import TechWidget
-    def addWidget(self, widget: TechWidget, /, wFlags=...):
-        if wFlags is ...:
-            super().addWidget(widget)
-        else:
-            super().addWidget(widget, wFlags=wFlags)

@@ -1,8 +1,8 @@
 def main():
     import sys
 
-    from PySide6.QtGui import QGuiApplication
     from PySide6.QtWidgets import QApplication
+    from PySide6.QtGui import QGuiApplication
 
     from ui.MainMenuWindow import MainMenuWindow
 
