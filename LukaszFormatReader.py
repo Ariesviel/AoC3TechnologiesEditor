@@ -1,13 +1,13 @@
 # I wrote this code a long time ago. That's why it is a bit shit
 
-def isOnlyContains(text, arg):
+def is_only_contains(text, arg):
     for char in text:
         if char not in arg:
             return False
     return True
 
 
-def formatType(data_type: str, path: str):
+def format_type(data_type: str, path: str):
     text = ''
     with open(path, 'r') as file:
         content = file.read().strip()
@@ -22,10 +22,10 @@ def formatType(data_type: str, path: str):
             else:
                 if char not in ' \t':
                     text += char
-    text = ''.join(     [('' if text[num] == '\n' and num > 0 and text[num-1] == ':' else char) for num, char in enumerate(text)]   )
-    text = ''.join(     [('' if char == '\n' else char) for char in text]   )
-    text = ''.join(     [('' if text[num] == ',' and num > 0 and text[num-1] in (',', '{', '[') else char) for num, char in enumerate(text)]    )
-    text = ''.join(     [('' if text[num] == ',' and num + 1 < len(text) and text[num+1] in (',', '}', ']') else char) for num, char in enumerate(text)]    )
+    text = ''.join(    [('' if text[num] == '\n' and num > 0 and text[num-1] == ':' else char) for num, char in enumerate(text)]   )
+    text = ''.join(    [('' if char == '\n' else char) for char in text]   )
+    text = ''.join(    [('' if text[num] == ',' and num > 0 and text[num-1] in (',', '{', '[') else char) for num, char in enumerate(text)]    )
+    text = ''.join(    [('' if text[num] == ',' and num + 1 < len(text) and text[num+1] in (',', '}', ']') else char) for num, char in enumerate(text)]    )
 
     pos = text.find('Age_of_History')
     offset = len('Age_of_History:')
@@ -34,18 +34,18 @@ def formatType(data_type: str, path: str):
     if file_type != data_type:
         raise TypeError(f"this is not {data_type} file")
 
-    return defineValue(text)
+    return define_value(text)
 
 
-def defineValue(text: str):
+def define_value(text: str):
     if text.startswith('[') and text.endswith(']') or text.startswith('{') and text.endswith('}'):
         if text.startswith('[') and text.endswith(']'):
-            return parseList(text)
-        return parseDict(text)
+            return parse_list(text)
+        return parse_dict(text)
     else:
         if text.startswith('"') and text.endswith('"'):
             return text[1:len(text)-1]
-        if isOnlyContains(text, '-0123456789.'):
+        if is_only_contains(text, '-0123456789.'):
             if '.' in text:
                 return float(text)
             else:
@@ -57,7 +57,7 @@ def defineValue(text: str):
         return text
 
 
-def parseDict(text: str):
+def parse_dict(text: str):
     content = {}
     is_read_value = False
     deep_step = 0
@@ -73,7 +73,7 @@ def parseDict(text: str):
             continue
         if is_read_value:
             if char == ',' and deep_step == 0:
-                content[key] = defineValue(value)
+                content[key] = define_value(value)
                 value = ''
                 key = ''
                 is_read_value = False
@@ -81,7 +81,7 @@ def parseDict(text: str):
             else:
                 value += char
             if num == len(text[1:len(text) - 1]) - 1:
-                content[key] = defineValue(value)
+                content[key] = define_value(value)
                 value = ''
                 key = ''
                 is_read_value = False
@@ -91,7 +91,7 @@ def parseDict(text: str):
     return content
 
 
-def parseList(text: str):
+def parse_list(text: str):
     content = []
     deep_step = 0
     value = ''
@@ -101,11 +101,11 @@ def parseList(text: str):
         if char in (']', '}'):
             deep_step -= 1
         if char == ',' and deep_step == 0:
-            content.append(defineValue(value))
+            content.append(define_value(value))
             value = ''
         else:
             value += char
         if num == len(text[1:len(text) - 1]) - 1:
-            content.append(defineValue(value))
+            content.append(define_value(value))
             value = ''
     return content

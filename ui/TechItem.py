@@ -1,8 +1,8 @@
 from typing import Final, Optional
 
-from PySide6.QtCore import QRectF, Qt, QSize, QPointF
-from PySide6.QtGui import QFont, QColor, QBrush, QPen
-from PySide6.QtWidgets import QGraphicsItem, QGraphicsSimpleTextItem
+from PySide6.QtCore import QRectF, QSize, QPointF, QPoint
+from PySide6.QtGui import QFont, QColor, QPen
+from PySide6.QtWidgets import QGraphicsItem
 
 from ui.TechTreeScene import TechTreeScene
 CELL_SIZE = TechTreeScene.CELL_SIZE
@@ -17,36 +17,49 @@ class TechItem(QGraphicsItem):
         CELL_SIZE.height()-OFFSET*2
     )
 
+    SELECTED_BORDER_COLOR: Final[QColor] = QColor(239, 239, 239)
+    PEN_SELECTED_BORDER_COLOR: Final[QPen] = QPen(SELECTED_BORDER_COLOR, OFFSET / 13.75)
+
+    SELECTED_COLOR: Final[QColor] = QColor(223, 223, 223)
+    SELECTED_FONT_COLOR: Final[QColor] = QColor(0, 0, 0)
+
+    BORDER_COLOR: Final[QColor] = QColor(91, 91, 91)
+    PEN_BORDER_COLOR: Final[QPen] = QPen(BORDER_COLOR, OFFSET / 13.75)
+
+    COLOR: Final[QColor] = QColor(47, 47, 47)
+    FONT_COLOR: Final[QColor] = QColor(255, 255, 255)
+
     def boundingRect(self): return QRectF(0,0, self.SIZE.width(), self.SIZE.height())
 
     def __init__(self,*,
-                 # ID: int=None,
-                 Name: str = "", MaintainTechnologyName: Optional[bool] = True, ImageID: int = 0,
+        #/* Technology args/mods
+        Name: str = "", MaintainTechnologyName: Optional[bool] = True, ImageID: int = 0,
 
-                 TreeColumn: int = 0, TreeRow: int = 0,
+        TreeColumn: int = 0, TreeRow: int = 0,
 
-                 RequiredTech: int = -1, RequiredTech2: int = -1,
+        RequiredTech: int = None, RequiredTech2: int = None,
 
-                 UnlocksNukes: bool = False,
-                 UnlocksAccessToTheSea: bool = False,
+        UnlocksNukes: bool = False,
+        UnlocksAccessToTheSea: bool = False,
 
-                 MaximumLevelOfCapitalCity: Optional[int] = None,
-                 MaximumLevelOfTheMilitaryAcademy: Optional[int] = None,
-                 MaximumLevelOfTheMilitaryAcademyForGenerals: Optional[int] = None,
+        MaximumLevelOfCapitalCity: Optional[int] = None,
+        MaximumLevelOfTheMilitaryAcademy: Optional[int] = None,
+        MaximumLevelOfTheMilitaryAcademyForGenerals: Optional[int] = None,
 
-                 BattleWidth: Optional[int] = None,
-                 UnitsAttack: Optional[int] = None, UnitsDefense: Optional[int] = None,
-                 GeneralAttack: Optional[int] = None, GeneralDefense: Optional[int] = None,
-                 MaxMorale: Optional[int] = None, Discipline: Optional[int] = None,
+        BattleWidth: Optional[int] = None,
+        UnitsAttack: Optional[int] = None, UnitsDefense: Optional[int] = None,
+        GeneralAttack: Optional[int] = None, GeneralDefense: Optional[int] = None,
+        MaxMorale: Optional[int] = None, Discipline: Optional[int] = None,
 
-                 Legacy: Optional[int] = None,
+        Legacy: Optional[int] = None,
 
-                 ResearchCost: int = 0,
-                 Repeatable: bool = False,
-                 AI: int = 5,
-                 **kwargs
+        ResearchCost: int = 0,
+        Repeatable: bool = False,
+        AI: int = 5,
+        **kwargs
+        # Technology args/mods */
         ):
-        print(kwargs)
+        #/* Assign technology args/mods
         self.TreeColumn, self.TreeRow = TreeColumn, TreeRow
         self.Name, self.MaintainTechnologyName, self.ImageID = Name, MaintainTechnologyName, ImageID
         self.RequiredTech, self.RequiredTech2 = RequiredTech, RequiredTech2
@@ -69,9 +82,12 @@ class TechItem(QGraphicsItem):
 
         self.Repeatable = Repeatable
         self.AI = AI
+        # Assign technology args/mods */
         super().__init__()
-        self.setPos(TreeColumn, TreeRow)
-        self.setUI()
+        self.setPos(QPoint(TreeColumn, TreeRow))
+        self.is_selected = False
+
+    def set_selected(self, is_selected): self.is_selected = is_selected
 
     def setX(self, x):
         super().setX(x*CELL_SIZE.width()+self.OFFSET)
@@ -85,39 +101,60 @@ class TechItem(QGraphicsItem):
         self.setX(pos.x())
         self.setY(pos.y())
 
-    def setPos(self, x, y):
-        self.setX(x)
-        self.setY(y)
-
     def x(self): return super().x()-self.OFFSET
 
     def y(self): return super().y()-self.OFFSET
 
     def pos(self): return QPointF(self.x(), self.y())
 
-    def ID(self): return self.scene().techItems.index(self)
-
-    def setUI(self):
-        self.nameLabel = QGraphicsSimpleTextItem(self.Name, self)
-        self.nameLabel.setBrush(QBrush(Qt.white))
-        self.nameLabel.setFont(QFont('Arial',self.SIZE.height()/4.75))
-        self.nameLabel.setPos(self.OFFSET*0.1,self.OFFSET*0.0375)
-        self.IDLabel = QGraphicsSimpleTextItem(f"", self)
-        self.IDLabel.setBrush(QBrush(Qt.white))
-        self.IDLabel.setFont(QFont('Arial',self.SIZE.height()/3))
-        self.IDLabel.setPos(self.OFFSET*0.15,self.SIZE.height()/3+self.OFFSET*0.3)
-
+    def ID(self): return self.scene().tech_items.index(self)
 
     def paint(self, painter, option, /, widget = ...):
-        self.nameLabel.setText(str(self.Name))
-        self.IDLabel.setText("ID="+str(self.ID()))
         rect = self.boundingRect()
 
-        painter.setPen(QPen(QColor(91,91,91),self.OFFSET/13.75))
-        painter.setBrush(QColor(47,47,47))
+        #/* Change pen and brush for draw background
+        if self.is_selected:
+            painter.setPen(self.PEN_SELECTED_BORDER_COLOR)
+            painter.setBrush(self.SELECTED_COLOR)
+        else:
+            painter.setPen(self.PEN_BORDER_COLOR)
+            painter.setBrush(self.COLOR)
+        # Change pen and brush for draw background */
 
-        painter.drawRect(rect)
+        painter.drawRect(rect) # Draw background
 
-        painter.setBrush(QColor(91,91,91))
+        #/* Change pen and brush for draw background for name label
+        if self.is_selected:
+            painter.setBrush(self.SELECTED_BORDER_COLOR)
+        else:
+            painter.setBrush(self.BORDER_COLOR)
+        # Change pen and brush for draw background for name label */
 
-        painter.drawRect(rect.x(),rect.y(),rect.width(),rect.height()/3)
+        painter.drawRect(rect.x(),rect.y(),rect.width(),rect.height()/3) # Draw background for name label
+
+        #/* Change pen and brush for name label
+        if self.is_selected:
+            painter.setPen(self.SELECTED_FONT_COLOR)
+            painter.setBrush(self.SELECTED_FONT_COLOR)
+        else:
+            painter.setPen(self.FONT_COLOR)
+            painter.setBrush(self.FONT_COLOR)
+        # Change pen and brush for name label */
+
+        #/* Draw name
+        painter.setFont(QFont('Arial',self.SIZE.height()/4.75))
+        painter.drawText(
+            QPoint(
+                1*(self.scene().CELL_SIZE.width()/300),
+                15*(self.scene().CELL_SIZE.height()/100)
+            ), str(self.Name))
+        # Draw name */
+
+        #/* Draw ID
+        painter.setFont(QFont('Arial',self.SIZE.height()/3))
+        painter.drawText(
+            QPoint(
+                3*(self.scene().CELL_SIZE.width()/300),
+                50*(self.scene().CELL_SIZE.height()/100)
+            ), f"ID={self.ID()}")
+        # Draw ID */

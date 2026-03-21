@@ -10,7 +10,7 @@ class MainMenuWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle('AoC3TechnologiesEditor')
         self.screenSize = screenSize
-        self.setUI()
+        self.set_ui()
 
 
     def resizeEvent(self, event):
@@ -37,12 +37,12 @@ class MainMenuWindow(QMainWindow):
         )
 
 
-    def createNew(self):
+    def create_new(self):
         self.techTreeEditorWindow = TechTreeEditorWindow()
         self.techTreeEditorWindow.show()
 
 
-    def openFile(self):
+    def open_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Choose file",
@@ -53,7 +53,7 @@ class MainMenuWindow(QMainWindow):
         self.techTreeEditorWindow.show()
 
 
-    def setUI(self):
+    def set_ui(self):
         self.setMinimumSize(
             int((300/1920)*self.screenSize.width()),
             int((400/1080)*self.screenSize.height())
@@ -65,9 +65,9 @@ class MainMenuWindow(QMainWindow):
         self.createNewTreeButton = QPushButton(self)
         self.createNewTreeButton.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.createNewTreeButton.setText('New Technologies Tree')
-        self.createNewTreeButton.clicked.connect(self.createNew)
+        self.createNewTreeButton.clicked.connect(self.create_new)
 
         self.openTreeButton = QPushButton(self)
         self.openTreeButton.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.openTreeButton.setText('Open Technologies Tree')
-        self.openTreeButton.clicked.connect(self.openFile)
+        self.openTreeButton.clicked.connect(self.open_file)

@@ -5,35 +5,40 @@ from PySide6.QtCore import QSize, QPoint
 from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import QGraphicsScene
 
-from LukaszFormatReader import formatType
+from LukaszFormatReader import format_type
 
 
 class TechTreeScene(QGraphicsScene):
 
-    CELL_SIZE: Final[QSize] = QSize(300, 100)
+    CELL_SIZE: Final[QSize] = QSize(450, 150)
 
     def __init__(self, file_path=None):
         super().__init__(0,0,self.CELL_SIZE.width()*200,self.CELL_SIZE.height()*100)
         #/* Technologies extraction
         from ui.TechItem import TechItem
-        self.techItems: list[TechItem] = []
+        self.tech_items: list[TechItem] = []
         if file_path:
-            content = formatType("Technology",file_path)
+            content = format_type("Technology", file_path)
             for technology in content["Technology"]:
-                self.addTechItem(TechItem(**technology))
-        for techItem in self.techItems:
-            techItem.RequiredTech = self.techItems[techItem.RequiredTech] if techItem.RequiredTech > -1 else None
-            techItem.RequiredTech2 = self.techItems[techItem.RequiredTech2] if techItem.RequiredTech2 > -1 else None
+                self.addItem(TechItem(**technology))
+        for techItem in self.tech_items:
+            techItem.RequiredTech = self.tech_items[techItem.RequiredTech] if techItem.RequiredTech > -1 else None
+            techItem.RequiredTech2 = self.tech_items[techItem.RequiredTech2] if techItem.RequiredTech2 > -1 else None
         # Technologies extraction */
 
 
-    def addTechItem(self, techItem, /):
-        self.techItems.append(techItem)
-        self.addItem(techItem)
+    def addItem(self, item, /):
+        super().addItem(item)
+        self.tech_items.append(item)
 
 
-    def drawGrid(self, painter: QPainter):
+    def draw_grid(self, painter: QPainter):
         w, h = self.CELL_SIZE.width(), self.CELL_SIZE.height()
+
+        painter.setPen(QColor(35, 35, 35))
+        painter.setBrush(QColor(35, 35, 35))
+
+        painter.drawRect(self.sceneRect())
 
         painter.setPen(QColor(191, 191, 191))
         painter.setBrush(QColor(191, 191, 191))
@@ -61,7 +66,8 @@ class TechTreeScene(QGraphicsScene):
         # Vertical lines */
 
 
-    def drawTechLine(self, painter: QPainter, start: QPoint, end: QPoint, w: float, color: QColor):
+    @staticmethod
+    def draw_tech_line(painter: QPainter, start: QPoint, end: QPoint, w: float, color: QColor):
         painter.setPen(color)
         painter.setBrush(color)
         point1 = QPoint(
@@ -77,8 +83,8 @@ class TechTreeScene(QGraphicsScene):
         painter.drawLine(point2,end)
 
 
-    def drawTechLines(self, painter: QPainter):
-        for techItem in self.techItems:
+    def draw_tech_lines(self, painter: QPainter):
+        for techItem in self.tech_items:
             #/* Line for RequiredTech
             tech1 = techItem.RequiredTech
             if tech1:
@@ -90,8 +96,9 @@ class TechTreeScene(QGraphicsScene):
                     tech1.x()+tech1.SIZE.width()+tech1.OFFSET,
                     tech1.y()+tech1.SIZE.height()/4+tech1.OFFSET
                 )
-                self.drawTechLine(painter,start1,end1,tech1.SIZE.width(), QColor(0,255,255))
+                self.draw_tech_line(painter, start1, end1, tech1.SIZE.width(), QColor(0, 255, 255))
             # Line for RequiredTech */
+
             #/* Line for RequiredTech2
             tech2 = techItem.RequiredTech2
             if tech2:
@@ -103,7 +110,7 @@ class TechTreeScene(QGraphicsScene):
                     tech2.x()+tech2.SIZE.width()+tech2.OFFSET,
                     tech2.y()+3*tech2.SIZE.height()/4+tech2.OFFSET
                 )
-                self.drawTechLine(painter,start2,end2,tech2.SIZE.width(), QColor(0,255,0))
+                self.draw_tech_line(painter, start2, end2, tech2.SIZE.width(), QColor(0, 255, 0))
             # Line for RequiredTech2 */
 
 
@@ -116,7 +123,7 @@ class TechTreeScene(QGraphicsScene):
         painter.drawRect(0,0,self.width(),self.height())
         # Background */
 
-        self.drawGrid(painter)
-        self.drawTechLines(painter)
+        self.draw_grid(painter)
+        self.draw_tech_lines(painter)
 
         painter.restore()
