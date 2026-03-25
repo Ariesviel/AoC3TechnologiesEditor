@@ -5,8 +5,9 @@ from typing import Final
 
 from PySide6.QtCore import QPoint, QPointF, Qt, QRect, QRectF, QSizeF, QSize
 from PySide6.QtGui import QPainter, QColor, Qt, QTransform
-from PySide6.QtWidgets import QGraphicsView, QLabel, QApplication, QMenu
+from PySide6.QtWidgets import QGraphicsView, QLabel, QApplication, QMenu, QInputDialog
 
+from LukaszFormatReader import format_from_lukasz, parse_dict
 from ui.TechTreeScene import TechTreeScene
 from ui.TechItem import TechItem
 
@@ -69,7 +70,7 @@ class TechTreeView(QGraphicsView):
         MovingItems = 2
         Selecting = 3
 
-    def __init__(self, scene:TechTreeScene, parent=None):
+    def __init__(self, scene: TechTreeScene, parent=None):
         super().__init__(scene, parent)
 
         self.setMouseTracking(True)
@@ -89,18 +90,15 @@ class TechTreeView(QGraphicsView):
 
         self.centerOn(0,0)
 
+    def scene(self) -> TechTreeScene: return super().scene()
 
     def set_cursor_state(self, cursor_state: CursorState):
         self.cursor_state = cursor_state
         match cursor_state:
-            case TechTreeView.CursorState.Selecting:
-                QApplication.setOverrideCursor(Qt.CursorShape.CrossCursor)
-            case TechTreeView.CursorState.MovingScene:
-                QApplication.setOverrideCursor(Qt.CursorShape.OpenHandCursor)
-            case TechTreeView.CursorState.MovingItems:
-                QApplication.setOverrideCursor(Qt.CursorShape.ClosedHandCursor)
-            case TechTreeView.CursorState.Basic:
-                QApplication.setOverrideCursor(Qt.CursorShape.ArrowCursor)
+            case TechTreeView.CursorState.Selecting: self.setCursor(Qt.CursorShape.CrossCursor)
+            case TechTreeView.CursorState.MovingScene: self.setCursor(Qt.CursorShape.OpenHandCursor)
+            case TechTreeView.CursorState.MovingItems: self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            case TechTreeView.CursorState.Basic: self.setCursor(Qt.CursorShape.ArrowCursor)
 
 
     def resizeEvent(self, event):
@@ -146,16 +144,59 @@ class TechTreeView(QGraphicsView):
         tech_item.setPos(get_grid_pos(pos))
 
 
+    def edit_tech(self, tech: TechItem):
+        dictionary = tech.to_dict()
+        text = "{\n"
+        for key in dictionary.keys():
+            value = None
+            predict = dictionary[key]
+            if isinstance(predict, str): value = f'"{dictionary[key]}"'
+            elif isinstance(predict, bool): value = "true" if dictionary[key] else "false"
+            else: value = dictionary[key]
+
+            text += f"    {key}: {value},\n"
+        text += "}"
+        text, ok = QInputDialog.getMultiLineText(self, 'Edit technology', 'Technology', text)
+        if ok:
+            dictionary = {}
+            content = parse_dict(format_from_lukasz(text))
+            if isinstance(content, dict):
+                for key in content.keys():
+                    value = content[key]
+                    if key in TechItem.MODS:
+                        # print(key, value)
+                        if key in TechItem.REQUIRED_MODS:
+                            if isinstance(value, TechItem.REQUIRED_MODS[key]):
+                                dictionary[key] = value
+                        elif key in TechItem.OPTIONAL_MODS:
+                            if value is not None:
+                                if isinstance(value, type(TechItem.OPTIONAL_MODS[key])):
+                                    dictionary[key] = value
+                tech.set_mods(**dictionary)
+            else:
+                raise TypeError(f"Content is {type(content)}")
+
+
+
     def open_context_menu(self, pos, global_pos):
         touched_item = self.scene().itemAt(self.mapToScene(pos),QTransform())
         menu = QMenu("Menu",self)
         menu.setStyleSheet("border-radius: 0.25em; background-color: black")
         if touched_item:
+            menu.addAction("Edit", partial(lambda: [self.edit_tech(tech) for tech in self.selected]))
             menu.addAction("Delete", partial(self.delete_selected))
+            last_id = len(self.scene().tech_items)-1
+            if len(self.selected) < 2:
+                menu.addAction(f"Set ID = {last_id}", partial(self.scene().insert_item, last_id, touched_item))
+                menu.addAction(f"Set ID = 0", partial(self.scene().insert_item, 0, touched_item))
         else:
             menu.addAction("Create new", partial(self.create_new_tech,self.mapToScene(pos)))
         geo = menu.geometry()
-        menu.setGeometry(QRect(global_pos,geo.size()))
+        size = QSize(
+            geo.width(),
+            geo.height()*len(menu.actions())
+        )
+        menu.setGeometry(QRect(global_pos,size))
         menu.show()
 
 
@@ -195,7 +236,7 @@ class TechTreeView(QGraphicsView):
         self.start_mouse_pos = start_pos
 
 
-    def end_select(self, last_pos: QPoint, alt_mod=False):
+    def end_selecting(self, last_pos: QPoint, alt_mod=False):
         self.set_cursor_state(TechTreeView.CursorState.Basic)
         point1 = get_grid_pos(self.start_mouse_pos)
         point2 = get_grid_pos(last_pos)
@@ -234,12 +275,12 @@ class TechTreeView(QGraphicsView):
         # Middle button
         if Qt.MouseButton.MiddleButton in buttons:
             if self.cursor_state == TechTreeView.CursorState.Selecting:
-                self.end_select(scene_mouse_pos)
+                self.end_selecting(scene_mouse_pos)
             self.set_cursor_state(TechTreeView.CursorState.MovingScene)
         # Right button
         elif Qt.MouseButton.RightButton in buttons:
             if self.cursor_state == TechTreeView.CursorState.Selecting:
-                self.end_select(scene_mouse_pos)
+                self.end_selecting(scene_mouse_pos)
             if touchedItem in self.selected:
                 pass
             else:
@@ -277,7 +318,7 @@ class TechTreeView(QGraphicsView):
             case Qt.MouseButton.LeftButton:
                 match self.cursor_state:
                     case TechTreeView.CursorState.Selecting:
-                        self.end_select(scene_mouse_pos, Qt.KeyboardModifier.AltModifier in event.modifiers())
+                        self.end_selecting(scene_mouse_pos, Qt.KeyboardModifier.AltModifier in event.modifiers())
                     case TechTreeView.CursorState.MovingItems:
                         self.set_cursor_state(TechTreeView.CursorState.Basic)
             case Qt.MouseButton.RightButton:
@@ -338,3 +379,22 @@ class TechTreeView(QGraphicsView):
         value = clamp((x+y)/2.0+delta,0.2,1.0)
         self.scale(1/x,1/y)
         self.scale(value,value)
+
+    def export(self) -> str:
+        scene = self.scene()
+        content = ''
+        for tech in scene.tech_items:
+            dictionary = tech.to_compact_dict()
+            content += "        {\n"
+            for key in dictionary.keys():
+                value = None
+                predict = dictionary[key]
+                if isinstance(predict, str):
+                    value = f'"{dictionary[key]}"'
+                elif isinstance(predict, bool):
+                    value = "true" if dictionary[key] else "false"
+                else:
+                    value = dictionary[key]
+                content += f"           {key}: {value},\n"
+            content += "        },\n"
+        return content

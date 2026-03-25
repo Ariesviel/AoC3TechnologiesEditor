@@ -47,7 +47,7 @@ class MainMenuWindow(QMainWindow):
             self,
             "Choose file",
             "",
-            "Все файлы (*.*)"
+            "JSON (*.json)"
         )
         self.techTreeEditorWindow = TechTreeEditorWindow(file_path)
         self.techTreeEditorWindow.show()

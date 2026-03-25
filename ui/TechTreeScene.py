@@ -1,16 +1,16 @@
 import math
-from typing import Final
+from typing import Final, ClassVar
 
 from PySide6.QtCore import QSize, QPoint
 from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import QGraphicsScene
 
-from LukaszFormatReader import format_type
+from LukaszFormatReader import read_lukasz_format
 
 
 class TechTreeScene(QGraphicsScene):
 
-    CELL_SIZE: Final[QSize] = QSize(450, 150)
+    CELL_SIZE: ClassVar[Final[QSize]] = QSize(450, 150)
 
     def __init__(self, file_path=None):
         super().__init__(0,0,self.CELL_SIZE.width()*200,self.CELL_SIZE.height()*100)
@@ -18,7 +18,7 @@ class TechTreeScene(QGraphicsScene):
         from ui.TechItem import TechItem
         self.tech_items: list[TechItem] = []
         if file_path:
-            content = format_type("Technology", file_path)
+            content = read_lukasz_format(file_path, "Technology")
             for technology in content["Technology"]:
                 self.addItem(TechItem(**technology))
         for techItem in self.tech_items:
@@ -27,7 +27,18 @@ class TechTreeScene(QGraphicsScene):
         # Technologies extraction */
 
 
-    def addItem(self, item, /):
+    def swap_techs(self, id1, id2): self.tech_items[id1], self.tech_items[id2] = self.tech_items[id2], self.tech_items[id1]
+
+
+    def insert_item(self, id1, item):
+        if item not in self.tech_items:
+            super().addItem(item)
+        else:
+            self.tech_items.remove(item)
+        self.tech_items.insert(id1, item)
+
+
+    def addItem(self, item):
         super().addItem(item)
         self.tech_items.append(item)
 

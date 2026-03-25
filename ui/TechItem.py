@@ -1,4 +1,4 @@
-from typing import Final, Optional
+from typing import Final, Optional, ClassVar
 
 from PySide6.QtCore import QRectF, QSize, QPointF, QPoint
 from PySide6.QtGui import QFont, QColor, QPen
@@ -29,7 +29,31 @@ class TechItem(QGraphicsItem):
     COLOR: Final[QColor] = QColor(47, 47, 47)
     FONT_COLOR: Final[QColor] = QColor(255, 255, 255)
 
+    MODS: ClassVar[Final[tuple]] = (
+        "ID","Name", "MaintainTechnologyName", "ImageID", "TreeColumn", "TreeRow", "RequiredTech", "RequiredTech2",
+        "UnlocksNukes", "UnlocksAccessToTheSea",
+        "MaximumLevelOfCapitalCity", "MaximumLevelOfTheMilitaryAcademy",
+        "MaximumLevelOfTheMilitaryAcademyForGenerals",
+        "BattleWidth", "UnitsAttack", "UnitsDefense",
+        "GeneralAttack", "GeneralDefense", "MaxMorale", "Discipline",
+        "Legacy", "ResearchCost", "Repeatable", "AI"
+    )
+    REQUIRED_MODS: ClassVar[Final[dict]] = {
+        "ID": int,"Name": str, "ImageID": int, "TreeColumn": int, "TreeRow": int, "RequiredTech": int, "RequiredTech2": int, "ResearchCost": int, "Repeatable": bool, "AI": int
+    }
+    OPTIONAL_MODS: ClassVar[Final[dict]] = {
+        "MaintainTechnologyName": True,
+        "UnlocksNukes": False, "UnlocksAccessToTheSea": False,
+        "MaximumLevelOfCapitalCity": 0, "MaximumLevelOfTheMilitaryAcademy": 0,
+        "MaximumLevelOfTheMilitaryAcademyForGenerals": 0,
+        "BattleWidth": 0, "UnitsAttack": 0, "UnitsDefense": 0,
+        "GeneralAttack": 0, "GeneralDefense": 0, "MaxMorale": 0, "Discipline": 0,
+        "Legacy": 0
+    }
+
     def boundingRect(self): return QRectF(0,0, self.SIZE.width(), self.SIZE.height())
+
+    def scene(self) -> TechTreeScene: return super().scene()
 
     def __init__(self,*,
         #/* Technology args/mods
@@ -42,16 +66,16 @@ class TechItem(QGraphicsItem):
         UnlocksNukes: bool = False,
         UnlocksAccessToTheSea: bool = False,
 
-        MaximumLevelOfCapitalCity: Optional[int] = None,
-        MaximumLevelOfTheMilitaryAcademy: Optional[int] = None,
-        MaximumLevelOfTheMilitaryAcademyForGenerals: Optional[int] = None,
+        MaximumLevelOfCapitalCity: Optional[int] = 0,
+        MaximumLevelOfTheMilitaryAcademy: Optional[int] = 0,
+        MaximumLevelOfTheMilitaryAcademyForGenerals: Optional[int] = 0,
 
-        BattleWidth: Optional[int] = None,
-        UnitsAttack: Optional[int] = None, UnitsDefense: Optional[int] = None,
-        GeneralAttack: Optional[int] = None, GeneralDefense: Optional[int] = None,
-        MaxMorale: Optional[int] = None, Discipline: Optional[int] = None,
+        BattleWidth: Optional[int] = 0,
+        UnitsAttack: Optional[int] = 0, UnitsDefense: Optional[int] = 0,
+        GeneralAttack: Optional[int] = 0, GeneralDefense: Optional[int] = 0,
+        MaxMorale: Optional[int] = 0, Discipline: Optional[int] = 0,
 
-        Legacy: Optional[int] = None,
+        Legacy: Optional[int] = 0,
 
         ResearchCost: int = 0,
         Repeatable: bool = False,
@@ -60,8 +84,8 @@ class TechItem(QGraphicsItem):
         # Technology args/mods */
         ):
         #/* Assign technology args/mods
-        self.TreeColumn, self.TreeRow = TreeColumn, TreeRow
         self.Name, self.MaintainTechnologyName, self.ImageID = Name, MaintainTechnologyName, ImageID
+        self.TreeColumn, self.TreeRow = TreeColumn, TreeRow
         self.RequiredTech, self.RequiredTech2 = RequiredTech, RequiredTech2
 
         self.UnlocksNukes = UnlocksNukes
@@ -86,6 +110,66 @@ class TechItem(QGraphicsItem):
         super().__init__()
         self.setPos(QPoint(TreeColumn, TreeRow))
         self.is_selected = False
+
+    def set_mods(self,*,
+        ID: Optional[int] = None,
+        Name: Optional[str] = None, MaintainTechnologyName: Optional[bool] = None, ImageID: Optional[int] = None,
+
+        TreeColumn: Optional[int] = None, TreeRow: Optional[int] = None,
+
+        RequiredTech: Optional[int] = None, RequiredTech2: Optional[int] = None,
+
+        UnlocksNukes: Optional[bool] = None,
+        UnlocksAccessToTheSea: Optional[bool] = None,
+
+        MaximumLevelOfCapitalCity: Optional[int] = None,
+        MaximumLevelOfTheMilitaryAcademy: Optional[int] = None,
+        MaximumLevelOfTheMilitaryAcademyForGenerals: Optional[int] = None,
+
+        BattleWidth: Optional[int] = None,
+        UnitsAttack: Optional[int] = None, UnitsDefense: Optional[int] = None,
+        GeneralAttack: Optional[int] = None, GeneralDefense: Optional[int] = None,
+        MaxMorale: Optional[int] = None, Discipline: Optional[int] = None,
+
+        Legacy: Optional[int] = None,
+
+        ResearchCost: Optional[int] = None,
+        Repeatable: Optional[bool] = None,
+        AI: Optional[int] = None,
+        **kwargs
+        ):
+        assign = lambda noneable, else_variant: else_variant if noneable is None else noneable
+
+        self.scene().insert_item(assign(ID, self.ID()), self)
+
+        self.setX(assign(TreeColumn, self.TreeColumn)); self.setY(assign(TreeRow, self.TreeRow))
+        self.Name, self.MaintainTechnologyName, self.ImageID = (
+            assign(Name, self.Name),
+            assign(MaintainTechnologyName, self.MaintainTechnologyName),
+            assign(ImageID, self.ImageID)
+        )
+        self.RequiredTech, self.RequiredTech2 = (
+            (self.scene().tech_items[RequiredTech] if RequiredTech > -1 else None) if RequiredTech else self.RequiredTech,
+            (self.scene().tech_items[RequiredTech2] if RequiredTech2 > -1 else None) if RequiredTech2 else self.RequiredTech2
+        )
+        self.UnlocksNukes = assign(UnlocksNukes, self.UnlocksNukes)
+        self.UnlocksAccessToTheSea = assign(UnlocksAccessToTheSea, self.UnlocksAccessToTheSea)
+
+        self.MaximumLevelOfCapitalCity = assign(MaximumLevelOfCapitalCity, self.MaximumLevelOfCapitalCity)
+        self.MaximumLevelOfTheMilitaryAcademy = assign(MaximumLevelOfTheMilitaryAcademy, self.MaximumLevelOfTheMilitaryAcademy)
+        self.MaximumLevelOfTheMilitaryAcademyForGenerals = assign(MaximumLevelOfTheMilitaryAcademyForGenerals, self.MaximumLevelOfTheMilitaryAcademyForGenerals)
+
+        self.BattleWidth = assign(BattleWidth, self.BattleWidth)
+        self.UnitsAttack, self.UnitsDefense = assign(UnitsAttack, self.UnitsAttack), assign(UnitsDefense, self.UnitsDefense)
+        self.GeneralAttack, self.GeneralDefense = assign(GeneralAttack, self.GeneralAttack), assign(GeneralDefense, self.GeneralDefense)
+        self.MaxMorale, self.Discipline = assign(MaxMorale, self.MaxMorale), assign(Discipline, self.Discipline)
+
+        self.Legacy = assign(Legacy, self.Legacy)
+
+        self.ResearchCost = assign(ResearchCost, self.ResearchCost)
+
+        self.Repeatable = assign(Repeatable, self.Repeatable)
+        self.AI = assign(AI,self.AI)
 
     def set_selected(self, is_selected): self.is_selected = is_selected
 
@@ -158,3 +242,35 @@ class TechItem(QGraphicsItem):
                 50*(self.scene().CELL_SIZE.height()/100)
             ), f"ID={self.ID()}")
         # Draw ID */
+
+    def to_dict(self) -> dict:
+        dictionary = {"ID":self.ID()}
+        for mod in TechItem.MODS:
+            value = getattr(self, mod)
+            if mod in TechItem.MODS:
+                if mod in TechItem.REQUIRED_MODS:
+                    if mod in ("RequiredTech", "RequiredTech2"):
+                        req_tech_id = value.ID() if value is not None else -1
+                        dictionary[mod] = req_tech_id
+                    elif mod != "ID":
+                        dictionary[mod] = value
+                elif mod in TechItem.OPTIONAL_MODS:
+                    if value is not None:
+                        dictionary[mod] = value
+        return dictionary
+
+    def to_compact_dict(self) -> dict:
+        dictionary = {"ID":self.ID()}
+        for mod in TechItem.MODS:
+            value = getattr(self, mod)
+            if mod in TechItem.MODS:
+                if mod in TechItem.REQUIRED_MODS:
+                    if mod in ("RequiredTech", "RequiredTech2"):
+                        req_tech_id = value.ID() if value is not None else -1
+                        dictionary[mod] = req_tech_id
+                    elif mod != "ID":
+                        dictionary[mod] = value
+                elif mod in TechItem.OPTIONAL_MODS:
+                    if value != TechItem.OPTIONAL_MODS[mod] and value is not None:
+                        dictionary[mod] = value
+        return dictionary

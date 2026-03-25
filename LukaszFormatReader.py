@@ -7,25 +7,30 @@ def is_only_contains(text, arg):
     return True
 
 
-def format_type(data_type: str, path: str):
+def format_from_lukasz(lukasz_format: str):
+    content = lukasz_format.strip()
     text = ''
-    with open(path, 'r') as file:
-        content = file.read().strip()
-        text = ''
-        is_str = False
-        for num, char in enumerate(content):
-            if char == '"' and num > 0 and content[num-1] != '\\':
-                is_str = False if is_str else True
-            if is_str:
-                if char not in "\\":
-                    text += char
-            else:
-                if char not in ' \t':
-                    text += char
+    is_str = False
+    for num, char in enumerate(content):
+        if char == '"' and num > 0 and content[num - 1] != '\\':
+            is_str = False if is_str else True
+        if is_str:
+            if char not in "\\":
+                text += char
+        else:
+            if char not in ' \t':
+                text += char
     text = ''.join(    [('' if text[num] == '\n' and num > 0 and text[num-1] == ':' else char) for num, char in enumerate(text)]   )
     text = ''.join(    [('' if char == '\n' else char) for char in text]   )
     text = ''.join(    [('' if text[num] == ',' and num > 0 and text[num-1] in (',', '{', '[') else char) for num, char in enumerate(text)]    )
     text = ''.join(    [('' if text[num] == ',' and num + 1 < len(text) and text[num+1] in (',', '}', ']') else char) for num, char in enumerate(text)]    )
+    return text
+
+
+def read_lukasz_format(path: str, data_type: str=None):
+    text = ''
+    with open(path, 'r') as file:
+        text = format_from_lukasz(file.read())
 
     pos = text.find('Age_of_History')
     offset = len('Age_of_History:')
