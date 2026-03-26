@@ -21,7 +21,7 @@ def format_from_lukasz(lukasz_format: str):
             if char not in ' \t':
                 text += char
     text = ''.join(    [('' if text[num] == '\n' and num > 0 and text[num-1] == ':' else char) for num, char in enumerate(text)]   )
-    text = ''.join(    [('' if char == '\n' else char) for char in text]   )
+    text = ''.join(    [(',' if char == '\n' else char) for char in text]   )
     text = ''.join(    [('' if text[num] == ',' and num > 0 and text[num-1] in (',', '{', '[') else char) for num, char in enumerate(text)]    )
     text = ''.join(    [('' if text[num] == ',' and num + 1 < len(text) and text[num+1] in (',', '}', ']') else char) for num, char in enumerate(text)]    )
     return text
